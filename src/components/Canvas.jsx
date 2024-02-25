@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { MODES, PAN_LIMIT } from "../constants/constants";
-import { findShape,exportDrawingsAsHTML,getDistance} from "../uills";
+import { findShape, exportDrawingsAsHTML, getDistance, clearCanvas } from "../utils";
 
 let lastPath = [];
 
@@ -18,43 +18,51 @@ const Canvas = ({ settings, ...rest }) => {
   const redoHistory = useRef([]);
   const moving = useRef(false);
   const selectedShapeRef = useRef(null);
+  const isDragging = useRef(false);
+  const dragStartCoords = useRef([0, 0]);
 
- 
 
+
+   // Function to prevent default behavior
   const prevent = (e) => {
     e.preventDefault();
     e.stopPropagation();
   };
 
+  // Function to select a shape
   const selectShape = (shape) => {
-    selectedShapeRef.current = shape;
+    history.current.forEach(item => {
+      item.selected = (item === shape); // Set selected flag for the clicked shape
+    });
+    drawCanvas(getContext()); // Trigger a redraw of the canvas
   };
-  
+
+  // Function to deselect a shape
   const deselectShape = () => {
     selectedShapeRef.current = null;
   };
-  
 
+   // Event handler for pointer down event
   const onPointerDown = (e) => {
     prevent(e);
     console.log("onPointerDown---->")
     getContext(settings.current);
     coords.current = [e.clientX, e.clientY];
-
     const [x, y] = getPoints(e, context.current);
     const shape = findShape(x, y, history.current);
-   
-
+     // Handle pan mode
     if (settings.current.mode === MODES.PAN) {
       moving.current = true;
       return;
     }
-
-    if(shape){
-      selectShape(shape);
+    // Handle shape selection
+    if (shape) {
+      isDragging.current = true;
+      dragStartCoords.current = [x, y];
+      selectShape(shape); // Highlight the selected shape
       return;
     }
-
+    // Handle drawing mode
     setDrawing(true);
     draw.current = true;
     const point = getPoints(e, context.current);
@@ -62,16 +70,23 @@ const Canvas = ({ settings, ...rest }) => {
     drawModes(settings.current.mode, context.current, point, lastPath);
   };
 
+  // Event handler for pointer up event
   const onPointerUp = (e) => {
     prevent(e);
-    console.log("on Pointer up------>");
+    console.log("on Pointer up------>");  
+     // Handle pan mode
     if (settings.current.mode === MODES.PAN) {
       moving.current = false;
       return;
     }
+    // Handle shape dragging
+    if (isDragging.current) {
+      isDragging.current = false;
+      deselectShape(); // Deselect the shape after movement
+    }
     setDrawing(false);
     draw.current = false;
-    //console.log("lastPath",lastPath);
+    // Save drawing to history
     if (lastPath.length > 1) {
       history.current.push({
         ...settings.current,
@@ -120,43 +135,52 @@ const Canvas = ({ settings, ...rest }) => {
 
   const onPointerMove = (e) => {
     prevent(e);
-    if (moving.current) return onCanvasMove(e, context.current);
-    if (!draw.current) return;
-    const point = getPoints(e, context.current);
-    drawModes(settings.current.mode, context.current, point, lastPath);
+    if (isDragging.current && selectedShapeRef.current) {
+      const [x, y] = getPoints(e, context.current);
+      const dx = x - dragStartCoords.current[0];
+      const dy = y - dragStartCoords.current[1];
+      selectedShapeRef.current.path = selectedShapeRef.current.path.map(([px, py]) => [px + dx, py + dy]);
+      drawCanvas(getContext());
+    } else {
+      if (moving.current) return onCanvasMove(e, context.current);
+      if (!draw.current) return;
+      const point = getPoints(e, context.current);
+      drawModes(settings.current.mode, context.current, point, lastPath);
+    }
+
   };
 
   const drawModes = (mode, ctx, point, path) => {
-    // console.log("drawModes------------->");
+    console.log("drawModes------------->");
     // console.log("point--",point);
     // console.log("path--",path);
-    // console.log("mode---",mode);  
-      switch (mode) {     
-        case MODES.RECT:
-          if (point) {
-           // console.log("--- pass1 ---");
-            path.length === 0 ? (path[0] = point) : (path[1] = point);
-            previewRect(path, ctx);
-          } else {
-            //console.log("--- pass2 ---");
-            //call below onlt when drap had happended
-            if(path.length>1){
-              drawRect(path, ctx);
-            }
-           
+    // console.log("mode---",mode);   
+    switch (mode) {
+      case MODES.RECT:
+        if (point) {
+          // console.log("--- pass1 ---");
+          path.length === 0 ? (path[0] = point) : (path[1] = point);
+          previewRect(path, ctx);
+        } else {
+          //console.log("--- pass2 ---");
+          //call below onlt when drap had happended
+          if (path.length > 1) {
+            drawRect(path, ctx);
           }
-          break;
-        case MODES.CIRCLE:
-          if (point) {
-            path.length === 0 ? (path[0] = point) : (path[1] = point);
-            previewCircle(path, ctx);
-          } else {
-            drawCircle(path, ctx);
-          }
-          break;
-        default:
-          return;
-      }
+
+        }
+        break;
+      case MODES.CIRCLE:
+        if (point) {
+          path.length === 0 ? (path[0] = point) : (path[1] = point);
+          previewCircle(path, ctx);
+        } else {
+          drawCircle(path, ctx);
+        }
+        break;
+      default:
+        return;
+    }
   };
 
   const getContext = (config, ctx) => {
@@ -185,7 +209,7 @@ const Canvas = ({ settings, ...rest }) => {
     drawRect(path, getContext(settings.current, ctx));
   };
 
-  const drawRect = (path, ctx) => {   
+  const drawRect = (path, ctx) => {
     ctx.beginPath();
     ctx.rect(
       path[0][0],
@@ -211,25 +235,31 @@ const Canvas = ({ settings, ...rest }) => {
     ctx.stroke();
   };
 
-  const clearCanvas = (ctx) => {
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, PAN_LIMIT, PAN_LIMIT);
-    ctx.restore();
-  };
+
 
   const drawCanvas = (ctx) => {
+
     clearCanvas(ctx);
+    console.log("drawCanvas----------->");   
     for (const item of history.current) {
       getContext(item, ctx);
+      if (item.selected) {
+        // Draw a border around the selected shape
+        ctx.strokeStyle = "red"; // Border color
+        ctx.lineWidth = 3; // Border width
+        ctx.setLineDash([5, 5]);
+      } else {
+        // Reset stroke color and line width for other shapes
+        ctx.strokeStyle = settings.current.color; // Default stroke color
+        ctx.lineWidth = settings.current.stroke; // Default line width
+        ctx.setLineDash([]);
+      }
       drawModes(item.mode, ctx, null, item.path);
     }
   };
 
   const undoCanvas = (e) => {
-    prevent(e);
-    // console.log("undoCanvas--->");
-    // console.log(history.current);
+    prevent(e); 
     if (history.current.length === 0) return;
     redoHistory.current.push(history.current.pop());
     drawCanvas(getContext());
@@ -278,7 +308,7 @@ const Canvas = ({ settings, ...rest }) => {
       mode: MODES.PAN,
       title: "move",
       icon: "move.svg",
-    },   
+    },
     {
       mode: MODES.RECT,
       title: "rectangle",
@@ -291,10 +321,11 @@ const Canvas = ({ settings, ...rest }) => {
     },
   ];
 
- //console.log("history---->", history.current);
+  //console.log("history---->", history.current);
 
   return (
     <>
+    {/* Canvas element */}
       <canvas
         ref={canvas}
         width={width}
@@ -303,12 +334,14 @@ const Canvas = ({ settings, ...rest }) => {
         id="mainCanvasBoard"
         className={settings.current.mode === MODES.PAN ? "moving" : "drawing"}
       />
+       {/* Menu buttons */}
       <div
         className="menu"
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
         aria-disabled={drawing}
-      >      
+      >
+         {/* Color picker */}
         <button className="button color" type="button">
           <input
             type="color"
@@ -318,6 +351,7 @@ const Canvas = ({ settings, ...rest }) => {
           />
         </button>
         <hr />
+         {/* Mode buttons */}
         {modeButtons.map((btn) => (
           <button
             className="button"
@@ -330,6 +364,7 @@ const Canvas = ({ settings, ...rest }) => {
           </button>
         ))}
         <hr />
+        {/* Undo and redo buttons */}
         <button
           className="button"
           type="button"
@@ -346,12 +381,13 @@ const Canvas = ({ settings, ...rest }) => {
         >
           <img src="assets/redo.svg" alt="redo" title="red" />
         </button>
-        <hr/>
+        <hr />
+        {/* Export button */}
         <button className="button" onClick={exportDrawingsAsHTML}>
           <img src={"assets/export.svg"} alt="download" title="download" />
         </button>
       </div>
-     
+
     </>
   );
 };

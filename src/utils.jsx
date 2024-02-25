@@ -1,27 +1,17 @@
-import { MODES} from "./constants/constants";
+import { MODES, PAN_LIMIT} from "./constants/constants";
 
-export const updateData = (data, index) => {
-    console.log("index",index);
-    return data.map((obj, i) => {
-        console.log(obj);
-        if (i === index) {
-            if (obj.color !== '#1e85e2') {
-                return { ...obj, color: '#1e85e2' };
-            }
-        } else if (obj.color === '#1e85e2') {
-            return { ...obj, color: '#000' };
-        }
-        return obj;
-    });
-};
 export const findShape = (x,y,shapesArr) => {
-    console.log("findShape----->");
+    // console.log("findShape----->");
+    // console.log("x-->"+x+"---y-->"+y);
+    // console.log(shapesArr);
     // Iterate over each shape in the history to check for intersection
     for (const item of shapesArr) {
-        if (!item) {
-            console.log("loop-->",item);
+      // console.log("============");
+      // console.log(item);
+        if (item) {
+           // console.log("loop-->",item);
             if (item.mode === MODES.RECT) {
-                console.log("loop inside  reactangle-->",item);
+                //console.log("loop inside  reactangle-->",item);
               // If the shape is a rectangle, check if the pointer coordinates are inside the rectangle
               const rect = item.path;
               const [rectX, rectY, rectWidth, rectHeight] = [
@@ -93,4 +83,12 @@ export const getDistance = ([[p1X, p1Y], [p2X, p2Y]]) => {
 
     // Cleanup
     URL.revokeObjectURL(a.href);
+};
+
+
+export const clearCanvas = (ctx) => {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, PAN_LIMIT, PAN_LIMIT);
+  ctx.restore();
 };

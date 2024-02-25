@@ -83,8 +83,7 @@ const Canvas = ({ settings, ...rest }) => {
       return;
     }
     
-    // Handle shape dragging
-    
+    // Handle shape dragging    
     // if (isDragging.current) {
     //   isDragging.current = false;
     //   deselectShape(); // Deselect the shape after movement
@@ -97,6 +96,9 @@ const Canvas = ({ settings, ...rest }) => {
         ...settings.current,
         path: lastPath,
       });
+      const newSape = history.current[history.current.length - 1];
+      selectShape(newSape);
+     
       redoHistory.current = [];
       lastPath = [];
       drawCanvas(getContext());
@@ -156,18 +158,18 @@ const Canvas = ({ settings, ...rest }) => {
   };
 
   const drawModes = (mode, ctx, point, path) => {
-    console.log("drawModes------------->");
+    //console.log("drawModes------------->");
     // console.log("point--",point);
     // console.log("path--",path);
     // console.log("mode---",mode);   
     switch (mode) {
       case MODES.RECT:
         if (point) {
-          console.log("--- pass1 ---");
+          //console.log("--- pass1 ---");
           path.length === 0 ? (path[0] = point) : (path[1] = point);
           previewRect(path, ctx);
         } else {
-          console.log("--- pass2 ---");
+          //console.log("--- pass2 ---");
           //call below onlt when drap had happended
           if (path.length > 1) {
             drawRect(path, ctx);

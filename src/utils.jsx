@@ -91,3 +91,20 @@ export const clearCanvas = (ctx) => {
     ctx.clearRect(0, 0, PAN_LIMIT, PAN_LIMIT);
     ctx.restore();
 };
+
+/**
+ * Calculate canvas coordinates (points) based on the mouse or pointer event and canvas context.
+ * Adjusts for canvas transformation and offset.
+ * @param {PointerEvent} e - Mouse or pointer event
+ * @param {CanvasRenderingContext2D} ctx - Canvas 2D rendering context
+ * @returns {number[]} - Array containing adjusted X and Y coordinates on the canvas
+ */
+export const getPoints = (e, ctx, canvas) => {
+  // Extract transformation information
+  const { e: dx, f: dy } = ctx.getTransform();
+  // Get the bounding rectangle of the canvas relative to the viewport
+  const rect = canvas.getBoundingClientRect();
+  // Calculate adjusted X and Y coordinates on the canvas
+  return [e.clientX - rect.x - dx, e.clientY - rect.y - dy];
+};
+

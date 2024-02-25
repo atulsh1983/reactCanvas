@@ -5,13 +5,25 @@ import {
   exportDrawingsAsHTML,
   getDistance,
   clearCanvas,
+  getPoints,
 } from "../utils";
 
+// Keep track of the last drawn path
 let lastPath = [];
 
+/**
+ * Canvas component for drawing shapes and managing user interactions.
+ * @param {Object} props - Component props.
+ * @param {Object} props.settings - Settings object.
+ * @param {number} props.width - Canvas width.
+ * @param {number} props.height - Canvas height.
+ * @returns {JSX.Element} Canvas component.
+ */
 const Canvas = ({ settings, ...rest }) => {
   const width = Math.min(rest.width, PAN_LIMIT);
   const height = Math.min(rest.height, PAN_LIMIT);
+
+  // State and refs initialization
   const [drawing, setDrawing] = useState(false);
   const [, render] = useReducer((prev) => !prev, false);
   const canvas = useRef(null);
@@ -26,13 +38,19 @@ const Canvas = ({ settings, ...rest }) => {
   const isDragging = useRef(false);
   const dragStartCoords = useRef([0, 0]);
 
-  // Function to prevent default behavior
+  /**
+   * Prevents default event behavior.
+   * @param {Event} e - Event object.
+   */
   const prevent = (e) => {
     e.preventDefault();
     e.stopPropagation();
   };
 
-  // Function to select a shape
+  /**
+   * Selects a shape on the canvas.
+   * @param {Object} shape - Shape object.
+   */
   const selectShape = (shape) => {
     history.current.forEach((item) => {
       item.selected = item === shape; // Set selected flag for the clicked shape
@@ -40,18 +58,16 @@ const Canvas = ({ settings, ...rest }) => {
     drawCanvas(getContext()); // Trigger a redraw of the canvas
   };
 
-  // Function to deselect a shape
-  const deselectShape = () => {
-    selectedShapeRef.current = null;
-  };
-
-  // Event handler for pointer down event
+  /**
+   * Event handler for pointer down event.
+   * @param {Event} e - Pointer event.
+   */
   const onPointerDown = (e) => {
     prevent(e);
     console.log("onPointerDown---->");
     getContext(settings.current);
     coords.current = [e.clientX, e.clientY];
-    const [x, y] = getPoints(e, context.current);
+    const [x, y] = getPoints(e, context.current, canvas.current);
     const shape = findShape(x, y, history.current);
     // Handle pan mode
     if (settings.current.mode === MODES.PAN) {
@@ -73,23 +89,24 @@ const Canvas = ({ settings, ...rest }) => {
     // Handle drawing mode
     setDrawing(true);
     draw.current = true;
-    const point = getPoints(e, context.current);
+    const point = getPoints(e, context.current, canvas.current);
     lastPath = [];
     drawModes(settings.current.mode, context.current, point, lastPath);
   };
 
-  // Event handler for pointer up event
+  /**
+   * Event handler for pointer up event.
+   * @param {Event} e - Pointer event.
+   */
   const onPointerUp = (e) => {
     prevent(e);
     console.log("on Pointer up------>");
-
     // Handle pan mode
     if (settings.current.mode === MODES.PAN) {
       moving.current = false;
       return;
     }
-
-    // Handle shape dragging
+    // Handle shape selection
     const selectedShape = selectedShapeRef.current;
     if (isDragging.current && selectedShape) {
       isDragging.current = false;
@@ -125,7 +142,9 @@ const Canvas = ({ settings, ...rest }) => {
     styles.top = (100 - f * 100) / PAN_LIMIT + "%";
     return styles;
   };
-
+  /**
+   * Updates the preview style based on canvas transformation.
+   */
   const updatePreview = () => {
     if (preview.current) {
       const style = getPreviewActiveStyles();
@@ -133,7 +152,11 @@ const Canvas = ({ settings, ...rest }) => {
       preview.current.style.top = style.top;
     }
   };
-
+  /**
+   * Handles canvas movement.
+   * @param {Event} e - Pointer event.
+   * @param {CanvasRenderingContext2D} ctx - Canvas 2D context.
+   */
   const onCanvasMove = (e, ctx) => {
     const [x1, y1] = coords.current;
     const { clientX: x2, clientY: y2 } = e;
@@ -148,15 +171,17 @@ const Canvas = ({ settings, ...rest }) => {
     coords.current = [x2, y2];
     updatePreview();
   };
-
+  /**
+   * Event handler for pointer move event.
+   * @param {Event} e - Pointer event.
+   */
   const onPointerMove = (e) => {
     prevent(e);
     if (isDragging.current && selectedShapeRef.current) {
-      const [x, y] = getPoints(e, context.current);
+      const [x, y] = getPoints(e, context.current, canvas.current);
       const [startX, startY] = dragStartCoords.current;
       const dx = x - startX;
       const dy = y - startY;
-
       selectedShapeRef.current.path = selectedShapeRef.current.path.map(
         ([px, py]) => [px + dx, py + dy]
       );
@@ -166,11 +191,17 @@ const Canvas = ({ settings, ...rest }) => {
     } else {
       if (moving.current) return onCanvasMove(e, context.current);
       if (!draw.current) return;
-      const point = getPoints(e, context.current);
+      const point = getPoints(e, context.current, canvas.current);
       drawModes(settings.current.mode, context.current, point, lastPath);
     }
   };
-
+  /**
+   * Draws shapes based on the current drawing mode.
+   * @param {string} mode - Drawing mode.
+   * @param {CanvasRenderingContext2D} ctx - Canvas 2D context.
+   * @param {number[]} point - Point coordinates.
+   * @param {number[][]} path - Path coordinates.
+   */
   const drawModes = (mode, ctx, point, path) => {
     //console.log("drawModes------------->");
     // console.log("point--",point);
@@ -202,7 +233,12 @@ const Canvas = ({ settings, ...rest }) => {
         return;
     }
   };
-
+  /**
+   * Gets the canvas 2D rendering context with applied settings.
+   * @param {Object} config - Drawing configuration.
+   * @param {CanvasRenderingContext2D} ctx - Canvas 2D context.
+   * @returns {CanvasRenderingContext2D} Canvas 2D context.
+   */
   const getContext = (config, ctx) => {
     if (!context.current) {
       context.current = canvas.current.getContext("2d");
@@ -216,19 +252,21 @@ const Canvas = ({ settings, ...rest }) => {
     }
     return ctx;
   };
-
-  const getPoints = (e, ctx) => {
-    const { e: dx, f: dy } = ctx.getTransform();
-    const rect = canvas.current.getBoundingClientRect();
-    return [e.clientX - rect.x - dx, e.clientY - rect.y - dy];
-  };
-
+  /**
+   * Previews a rectangle shape on the canvas.
+   * @param {number[][]} path - Array of two points representing the rectangle.
+   * @param {CanvasRenderingContext2D} ctx - Canvas 2D rendering context.
+   */
   const previewRect = (path, ctx) => {
     if (path.length < 2) return;
     drawCanvas(ctx);
     drawRect(path, getContext(settings.current, ctx));
   };
-
+  /**
+   * Draws a rectangle shape on the canvas.
+   * @param {number[][]} path - Array of two points representing the rectangle.
+   * @param {CanvasRenderingContext2D} ctx - Canvas 2D rendering context.
+   */
   const drawRect = (path, ctx) => {
     ctx.beginPath();
     ctx.rect(
@@ -239,20 +277,31 @@ const Canvas = ({ settings, ...rest }) => {
     );
     ctx.stroke();
   };
-
+  /**
+   * Previews a circle shape on the canvas.
+   * @param {number[][]} path - Array of two points representing the circle.
+   * @param {CanvasRenderingContext2D} ctx - Canvas 2D rendering context.
+   */
   const previewCircle = (path, ctx) => {
     if (path.length < 2) return;
     drawCanvas(ctx);
     getContext(settings.current, ctx); // reset context
     drawCircle(path, ctx);
   };
-
+  /**
+   * Draws a circle shape on the canvas.
+   * @param {number[][]} path - Array of two points representing the circle.
+   * @param {CanvasRenderingContext2D} ctx - Canvas 2D rendering context.
+   */
   const drawCircle = (path, ctx) => {
     ctx.beginPath();
     ctx.arc(path[0][0], path[0][1], getDistance(path), 0, 2 * Math.PI);
     ctx.stroke();
   };
-
+  /**
+   * Draws all shapes on the canvas.
+   * @param {CanvasRenderingContext2D} ctx - Canvas 2D rendering context.
+   */
   const drawCanvas = (ctx) => {
     clearCanvas(ctx);
     for (const item of history.current) {
@@ -271,7 +320,10 @@ const Canvas = ({ settings, ...rest }) => {
       drawModes(item.mode, ctx, null, item.path);
     }
   };
-
+  /**
+   * Undoes the last canvas action.
+   * @param {Event} e - Pointer event.
+   */
   const undoCanvas = (e) => {
     prevent(e);
     if (history.current.length === 0) return;
@@ -280,6 +332,10 @@ const Canvas = ({ settings, ...rest }) => {
     render();
   };
 
+  /**
+   * Redoes the last undone canvas action.
+   * @param {Event} e - Pointer event.
+   */
   const redoCanvas = (e) => {
     prevent(e);
     if (redoHistory.current.length === 0) return;
@@ -288,6 +344,11 @@ const Canvas = ({ settings, ...rest }) => {
     render();
   };
 
+  /**
+   * Sets the drawing mode.
+   * @param {string} mode - Drawing mode.
+   * @returns {Function} Event handler function.
+   */
   const setMode = (mode) => (e) => {
     settings.current.mode = mode;
     render();

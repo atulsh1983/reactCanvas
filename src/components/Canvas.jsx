@@ -37,6 +37,7 @@ const Canvas = ({ settings, ...rest }) => {
   const selectedShapeRef = useRef(null);
   const isDragging = useRef(false);
   const dragStartCoords = useRef([0, 0]);
+ 
 
   /**
    * Prevents default event behavior.
@@ -64,7 +65,6 @@ const Canvas = ({ settings, ...rest }) => {
    */
   const onPointerDown = (e) => {
     prevent(e);
-    console.log("onPointerDown---->");
     getContext(settings.current);
     coords.current = [e.clientX, e.clientY];
     const [x, y] = getPoints(e, context.current, canvas.current);
@@ -75,15 +75,14 @@ const Canvas = ({ settings, ...rest }) => {
       return;
     }
     // Handle shape selection
-    if (shape) {
-      console.log("shape found");
+    if (shape) {     
       canvas.current.style.cursor = "move";
       selectedShapeRef.current = shape;
       isDragging.current = true;
       dragStartCoords.current = [x, y];
-      selectShape(shape); // Highlight the selected shape
+      selectShape(shape); // Highlight the selected shape      
       return;
-    } else {
+    } else {   
       selectShape("");
     }
     // Handle drawing mode
@@ -99,8 +98,7 @@ const Canvas = ({ settings, ...rest }) => {
    * @param {Event} e - Pointer event.
    */
   const onPointerUp = (e) => {
-    prevent(e);
-    console.log("on Pointer up------>");
+    prevent(e);   
     // Handle pan mode
     if (settings.current.mode === MODES.PAN) {
       moving.current = false;
@@ -203,19 +201,12 @@ const Canvas = ({ settings, ...rest }) => {
    * @param {number[][]} path - Path coordinates.
    */
   const drawModes = (mode, ctx, point, path) => {
-    //console.log("drawModes------------->");
-    // console.log("point--",point);
-    // console.log("path--",path);
-    // console.log("mode---",mode);
     switch (mode) {
       case MODES.RECT:
         if (point) {
-          //console.log("--- pass1 ---");
           path.length === 0 ? (path[0] = point) : (path[1] = point);
           previewRect(path, ctx);
         } else {
-          //console.log("--- pass2 ---");
-          //call below onlt when drap had happended
           if (path.length > 1) {
             drawRect(path, ctx);
           }
@@ -374,8 +365,9 @@ const Canvas = ({ settings, ...rest }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width, height]);
 
-  const changeColor = (e) => {
+  const changeColor = (e) => {  
     settings.current.color = e.target.value;
+    e.target.blur();
   };
 
   const modeButtons = [
@@ -395,6 +387,8 @@ const Canvas = ({ settings, ...rest }) => {
       icon: "circle.svg",
     },
   ];
+
+ 
 
   return (
     <>

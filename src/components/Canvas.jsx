@@ -1,6 +1,11 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { MODES, PAN_LIMIT } from "../constants/constants";
-import { findShape, exportDrawingsAsHTML, getDistance, clearCanvas } from "../utils";
+import {
+  findShape,
+  exportDrawingsAsHTML,
+  getDistance,
+  clearCanvas,
+} from "../utils";
 
 let lastPath = [];
 
@@ -21,9 +26,7 @@ const Canvas = ({ settings, ...rest }) => {
   const isDragging = useRef(false);
   const dragStartCoords = useRef([0, 0]);
 
-
-
-   // Function to prevent default behavior
+  // Function to prevent default behavior
   const prevent = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -31,8 +34,8 @@ const Canvas = ({ settings, ...rest }) => {
 
   // Function to select a shape
   const selectShape = (shape) => {
-    history.current.forEach(item => {
-      item.selected = (item === shape); // Set selected flag for the clicked shape
+    history.current.forEach((item) => {
+      item.selected = item === shape; // Set selected flag for the clicked shape
     });
     drawCanvas(getContext()); // Trigger a redraw of the canvas
   };
@@ -42,27 +45,30 @@ const Canvas = ({ settings, ...rest }) => {
     selectedShapeRef.current = null;
   };
 
-   // Event handler for pointer down event
+  // Event handler for pointer down event
   const onPointerDown = (e) => {
     prevent(e);
-    console.log("onPointerDown---->")
+    console.log("onPointerDown---->");
     getContext(settings.current);
     coords.current = [e.clientX, e.clientY];
     const [x, y] = getPoints(e, context.current);
     const shape = findShape(x, y, history.current);
-     // Handle pan mode
+    // Handle pan mode
     if (settings.current.mode === MODES.PAN) {
       moving.current = true;
       return;
     }
     // Handle shape selection
     if (shape) {
+      console.log("shape found");
+      canvas.current.style.cursor = "move";
+      selectedShapeRef.current = shape;
       isDragging.current = true;
       dragStartCoords.current = [x, y];
       selectShape(shape); // Highlight the selected shape
       return;
-    }else{
-      selectShape('');
+    } else {
+      selectShape("");
     }
     // Handle drawing mode
     setDrawing(true);
@@ -75,19 +81,22 @@ const Canvas = ({ settings, ...rest }) => {
   // Event handler for pointer up event
   const onPointerUp = (e) => {
     prevent(e);
-    console.log("on Pointer up------>"); 
+    console.log("on Pointer up------>");
 
-     // Handle pan mode
+    // Handle pan mode
     if (settings.current.mode === MODES.PAN) {
       moving.current = false;
       return;
     }
-    
-    // Handle shape dragging    
-    // if (isDragging.current) {
-    //   isDragging.current = false;
-    //   deselectShape(); // Deselect the shape after movement
-    // }
+
+    // Handle shape dragging
+    const selectedShape = selectedShapeRef.current;
+    if (isDragging.current && selectedShape) {
+      isDragging.current = false;
+      selectedShapeRef.current = null; // Reset selected shape
+      canvas.current.style.cursor = "auto"; // Reset cursor to default
+    }
+
     setDrawing(false);
     draw.current = false;
     // Save drawing to history
@@ -98,7 +107,7 @@ const Canvas = ({ settings, ...rest }) => {
       });
       const newSape = history.current[history.current.length - 1];
       selectShape(newSape);
-     
+
       redoHistory.current = [];
       lastPath = [];
       drawCanvas(getContext());
@@ -144,9 +153,15 @@ const Canvas = ({ settings, ...rest }) => {
     prevent(e);
     if (isDragging.current && selectedShapeRef.current) {
       const [x, y] = getPoints(e, context.current);
-      const dx = x - dragStartCoords.current[0];
-      const dy = y - dragStartCoords.current[1];
-      selectedShapeRef.current.path = selectedShapeRef.current.path.map(([px, py]) => [px + dx, py + dy]);
+      const [startX, startY] = dragStartCoords.current;
+      const dx = x - startX;
+      const dy = y - startY;
+
+      selectedShapeRef.current.path = selectedShapeRef.current.path.map(
+        ([px, py]) => [px + dx, py + dy]
+      );
+      dragStartCoords.current = [x, y]; // Update the drag start coordinates
+
       drawCanvas(getContext());
     } else {
       if (moving.current) return onCanvasMove(e, context.current);
@@ -154,14 +169,13 @@ const Canvas = ({ settings, ...rest }) => {
       const point = getPoints(e, context.current);
       drawModes(settings.current.mode, context.current, point, lastPath);
     }
-
   };
 
   const drawModes = (mode, ctx, point, path) => {
     //console.log("drawModes------------->");
     // console.log("point--",point);
     // console.log("path--",path);
-    // console.log("mode---",mode);   
+    // console.log("mode---",mode);
     switch (mode) {
       case MODES.RECT:
         if (point) {
@@ -174,7 +188,6 @@ const Canvas = ({ settings, ...rest }) => {
           if (path.length > 1) {
             drawRect(path, ctx);
           }
-
         }
         break;
       case MODES.CIRCLE:
@@ -234,15 +247,11 @@ const Canvas = ({ settings, ...rest }) => {
     drawCircle(path, ctx);
   };
 
-
-
   const drawCircle = (path, ctx) => {
     ctx.beginPath();
     ctx.arc(path[0][0], path[0][1], getDistance(path), 0, 2 * Math.PI);
     ctx.stroke();
   };
-
-
 
   const drawCanvas = (ctx) => {
     clearCanvas(ctx);
@@ -264,7 +273,7 @@ const Canvas = ({ settings, ...rest }) => {
   };
 
   const undoCanvas = (e) => {
-    prevent(e); 
+    prevent(e);
     if (history.current.length === 0) return;
     redoHistory.current.push(history.current.pop());
     drawCanvas(getContext());
@@ -326,11 +335,9 @@ const Canvas = ({ settings, ...rest }) => {
     },
   ];
 
-
-
   return (
     <>
-    {/* Canvas element */}
+      {/* Canvas element */}
       <canvas
         ref={canvas}
         width={width}
@@ -339,14 +346,14 @@ const Canvas = ({ settings, ...rest }) => {
         id="mainCanvasBoard"
         className={settings.current.mode === MODES.PAN ? "moving" : "drawing"}
       />
-       {/* Menu buttons */}
+      {/* Menu buttons */}
       <div
         className="menu"
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
         aria-disabled={drawing}
       >
-         {/* Color picker */}
+        {/* Color picker */}
         <button className="button color" type="button">
           <input
             type="color"
@@ -356,7 +363,7 @@ const Canvas = ({ settings, ...rest }) => {
           />
         </button>
         <hr />
-         {/* Mode buttons */}
+        {/* Mode buttons */}
         {modeButtons.map((btn) => (
           <button
             className="button"
@@ -392,7 +399,6 @@ const Canvas = ({ settings, ...rest }) => {
           <img src={"assets/export.svg"} alt="download" title="download" />
         </button>
       </div>
-
     </>
   );
 };

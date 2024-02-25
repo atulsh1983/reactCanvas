@@ -61,6 +61,8 @@ const Canvas = ({ settings, ...rest }) => {
       dragStartCoords.current = [x, y];
       selectShape(shape); // Highlight the selected shape
       return;
+    }else{
+      selectShape('');
     }
     // Handle drawing mode
     setDrawing(true);
@@ -73,17 +75,20 @@ const Canvas = ({ settings, ...rest }) => {
   // Event handler for pointer up event
   const onPointerUp = (e) => {
     prevent(e);
-    console.log("on Pointer up------>");  
+    console.log("on Pointer up------>"); 
+
      // Handle pan mode
     if (settings.current.mode === MODES.PAN) {
       moving.current = false;
       return;
     }
+    
     // Handle shape dragging
-    if (isDragging.current) {
-      isDragging.current = false;
-      deselectShape(); // Deselect the shape after movement
-    }
+    
+    // if (isDragging.current) {
+    //   isDragging.current = false;
+    //   deselectShape(); // Deselect the shape after movement
+    // }
     setDrawing(false);
     draw.current = false;
     // Save drawing to history
@@ -158,11 +163,11 @@ const Canvas = ({ settings, ...rest }) => {
     switch (mode) {
       case MODES.RECT:
         if (point) {
-          // console.log("--- pass1 ---");
+          console.log("--- pass1 ---");
           path.length === 0 ? (path[0] = point) : (path[1] = point);
           previewRect(path, ctx);
         } else {
-          //console.log("--- pass2 ---");
+          console.log("--- pass2 ---");
           //call below onlt when drap had happended
           if (path.length > 1) {
             drawRect(path, ctx);
@@ -238,9 +243,7 @@ const Canvas = ({ settings, ...rest }) => {
 
 
   const drawCanvas = (ctx) => {
-
     clearCanvas(ctx);
-    console.log("drawCanvas----------->");   
     for (const item of history.current) {
       getContext(item, ctx);
       if (item.selected) {
@@ -321,7 +324,7 @@ const Canvas = ({ settings, ...rest }) => {
     },
   ];
 
-  //console.log("history---->", history.current);
+
 
   return (
     <>
